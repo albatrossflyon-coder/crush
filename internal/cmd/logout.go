@@ -85,7 +85,7 @@ crush logout copilot
 		case "copilot", "github", "github-copilot":
 			return logoutCopilot(c, ws.ID)
 		default:
-			return fmt.Errorf("unknown platform: %s", provider)
+			return logoutGenericProvider(c, ws.ID, provider)
 		}
 	},
 }
@@ -115,6 +115,25 @@ func logoutCopilot(c *client.Client, wsID string) error {
 	}
 
 	fmt.Println(logoutHeaderStyle.Render("Successfully logged out of GitHub Copilot."))
+	return nil
+}
+
+// logoutGenericProvider handles any provider that doesn't need its own
+// special-cased function above (hyper, copilot). It mirrors what
+// pickLoggedInProvider already does when it *lists* logged-in providers:
+// treat every provider the same way via its config field paths, rather
+// than requiring a hand-written function per platform.
+func logoutGenericProvider(c *client.Client, wsID string, provider string) error {
+	ctx := getLogoutContext()
+
+	if err := cmp.Or(
+		c.RemoveConfigField(ctx, wsID, config.ScopeGlobal, fmt.Sprintf("providers.%s.api_key", provider)),
+		c.RemoveConfigField(ctx, wsID, config.ScopeGlobal, fmt.Sprintf("providers.%s.oauth", provider)),
+	); err != nil {
+		return err
+	}
+
+	fmt.Println(logoutHeaderStyle.Render(fmt.Sprintf("Successfully logged out of %s.", provider)))
 	return nil
 }
 
